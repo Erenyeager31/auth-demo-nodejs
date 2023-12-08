@@ -26,6 +26,7 @@ const nodemailer = require('nodemailer')
 router.post('/registerUser',[
     //* This area is used for the validation of the credentials
     body('email','Please enter a valid Email').isEmail(),
+    body('username','Please enter a valid username').exists(),
     body('password','The password should have minimum length 8').isLength({min:8}).isAlphanumeric()
 ],
 async (req,res) =>{
@@ -38,7 +39,7 @@ async (req,res) =>{
         })
     }
 
-    const {email,password} = req.body
+    const {email,username,password} = req.body
     // console.log(req,body)
     try {
         //* checking if the email already exists
@@ -49,6 +50,19 @@ async (req,res) =>{
                 message:"Email ID already exists"
             })
         }
+        try {
+            user = await USER.findOne({username:username})
+            
+        } catch (error) {
+    console.log(error)            
+        }
+        console.log("hi")
+        if(user){
+            return  res.status(400).json({
+                success:false,
+                message:"Username already exists"
+            })
+        }
         
         //* creating hashed password
         const salt = await bcrypt.genSalt(10)
@@ -56,6 +70,7 @@ async (req,res) =>{
 
         user = await USER.create({
             email:email,
+            username:username,
             password:hashed_password
         })
         console.log("hi")
@@ -66,7 +81,8 @@ async (req,res) =>{
     } catch (error) {
         return res.status(400).json({
             success:false,
-            message:"Some unexpected error has occured. Please try again later"
+            message:"Some unexpected error has occured. Please try again later",
+            error
         })
     }
 })
@@ -74,7 +90,7 @@ async (req,res) =>{
 //! api endpoint to handle user login
 router.post('/loginUser',[
     //* This area is used for the validation of the credentials
-    body('email','Please enter a valid Email').isEmail(),
+    body('username','Please enter a valid username').exists(),
     body('password','The password should have minimum length 8').isLength({min:8}).isAlphanumeric()
 ],
 async (req,res) =>{
@@ -87,11 +103,11 @@ async (req,res) =>{
         })
     }
 
-    const {email,password} = req.body
+    const {username,password} = req.body
 
     try {
         //* checking if the email exists
-        let user = await USER.findOne({email:email})
+        let user = await USER.findOne({username:username})
         if(!user){
             return  res.status(400).json({
                 success:false,
@@ -130,7 +146,7 @@ async (req,res) =>{
 //! Api endpoint for forgot password
 router.post('/forgotpwd',[
     //* This area is used for the validation of the credentials
-    body('email','Please enter a valid Email').isEmail(),
+    body('username','Please enter a valid Username').exists(),
 ],
 async (req,res) =>{
     const errors = validationResult(req)
@@ -141,18 +157,19 @@ async (req,res) =>{
         })
     }
 
-    const {email} = req.body
+    const {username} = req.body
 
     try {
         //* checking if the email exists
-        let user = await USER.findOne({email:email})
-        if(!user){  //*email does not exist
+        let user = await USER.findOne({username:username})
+        if(!user){  //*username does not exist
             return  res.status(400).json({
                 success:false,
-                message:"The Email ID does not exist"
+                message:"The Username does not exist"
             })
         }
 
+        console.log(user.email)
         //* handling for valid email and sending email for password reset
         const transporter = nodemailer.createTransport({
             service: 'gmail',
@@ -162,15 +179,19 @@ async (req,res) =>{
             },
           });
 
+        //   $2a$10$O/yiV4FC9ac0sjxM.3dopOpPwTwwZyVOANPxU47pQg.wlOHjmLEhG
+        // $2a$10$h4AfysFuKuVDtr8rtzqP3ugG/G.jYL4n0QEqAM4Dr57xGjk1447MO
+
+
         const mailOptions = {
             from: host_mail,
-            to: email,
+            to: user.email,
             subject: `Link to reset the password`,
             html: '<body>'+
             '<div style="background-color: #1d3557; border:2px solid yellow; color: #fffcf2; font-family:Verdana, Geneva, Tahoma, sans-serif; width: 95%; padding:1% ">'+
               '<h1 style="text-align: center;">PASSWORD RESET</h1>'+
               '<h3 style="text-align: center;">Please click on the link to reset the password for your account --> <a href="http:localhost:3000">CLICK HERE</a> </h3>'+
-              '<h5>'+email+'</h5>'+
+              '<h5>'+user.email+'</h5>'+
             '</div>'+
           '</body>'
           };
