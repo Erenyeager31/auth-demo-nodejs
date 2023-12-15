@@ -13,6 +13,12 @@ const UserSchema = mongoose.Schema({
         type:String,
         required:true
     },
+    posts:[
+    ],
+    likes:[
+    ],
+    comments:[
+    ],
     timestamp:{
         type:Date,
         default:Date.now

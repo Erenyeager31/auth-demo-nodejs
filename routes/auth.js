@@ -1,6 +1,6 @@
-require('dotenv').config()
+// require('dotenv').config()
 //! environment variables
-const JWTSECRETKEY = process.env.JWTSECRETKEY
+// const JWTSECRETKEY = process.env.JWTSECRETKEY
 const host_mail = process.env.host_mail
 const smtp_password = process.env.smtp_password
 
@@ -21,6 +21,7 @@ const {body,validationResult} = require('express-validator')
 
 //! importing nodemailer for the smtp service
 const nodemailer = require('nodemailer')
+const verifyUser = require('../middleware/Userverification')
 
 //! api endpoint to handle user registration
 router.post('/registerUser',[
@@ -30,6 +31,9 @@ router.post('/registerUser',[
     body('password','The password should have minimum length 8').isLength({min:8}).isAlphanumeric()
 ],
 async (req,res) =>{
+    const {email,username,password} = req.body
+    console.log(req.body)
+    // console.log(email)
     const errors = validationResult(req)
     if(!errors.isEmpty()){
         return res.status(400).json({
@@ -39,8 +43,6 @@ async (req,res) =>{
         })
     }
 
-    const {email,username,password} = req.body
-    // console.log(req,body)
     try {
         //* checking if the email already exists
         let user = await USER.findOne({email:email})
@@ -96,10 +98,12 @@ router.post('/loginUser',[
 async (req,res) =>{
     const errors = validationResult(req)
     if(!errors.isEmpty()){
-        return res.status(400).json({
+        console.log(req.body)
+        return res.status(200).json({
             success:false,
             message:"Credentials are not in the desired format",
-            errors
+            errors,
+            // req,body
         })
     }
 
@@ -109,7 +113,7 @@ async (req,res) =>{
         //* checking if the email exists
         let user = await USER.findOne({username:username})
         if(!user){
-            return  res.status(400).json({
+            return  res.status(200).json({
                 success:false,
                 message:"Invalid login Credentials"
             })
@@ -118,7 +122,7 @@ async (req,res) =>{
         const pass_verify = await bcrypt.compare(password,user.password)
 
         if(!pass_verify){
-            return res.status(400).json({
+            return res.status(200).json({
                 success:false,
                 message:"Incorrect password"
             })
@@ -128,15 +132,23 @@ async (req,res) =>{
             id:user._id
         }
         //* creating authtoken
-        const authtoken = jwt.sign(payload,JWTSECRETKEY)
+        const authtoken = jwt.sign(payload,process.env.JWTSECRETKEY)
 
-        return res.status(200).json({
+        return res.status(200)
+        .cookie("authtoken",authtoken,
+        {
+            path: "/",
+            expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            httpOnly: true,
+            sameSite: "strict",
+        })
+        .json({
             success:true,
             message:"Login Successful",
-            authtoken:authtoken
+            username
         })
     } catch (error) {
-        return res.status(400).json({
+        return res.status(200).json({
             success:false,
             message:"Some unexpected error has occured. Please try again later",
         })
@@ -263,6 +275,13 @@ async (req,res) =>{
             message:"Some unexpected error has occured. Please try again later"
         })
     }
+})
+
+router.post('/',verifyUser,
+async (req,res)=>{
+    return res.status(200).json({
+        message:"message"
+    })
 })
 
 module.exports = router
