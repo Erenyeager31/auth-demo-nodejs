@@ -9,7 +9,7 @@ const verifyUser = (req, res, next) => {
                 message: "Please login!",
             });
         }
-        //! ACcessing the cookie
+        //! Accessing the cookie
         const token = req.headers?.cookie.split("=")[1];
         const verification = jwt.verify(token,process.env.JWTSECRETKEY)
         if(verification){
